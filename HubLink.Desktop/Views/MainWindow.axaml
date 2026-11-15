@@ -1,8 +1,125 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HubLink.Desktop.ViewModels"
+        xmlns:domain="using:HubLink.Domain"
         x:Class="HubLink.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="HubLink">
-    <TextBlock Text="{Binding BranchCode}" Margin="20" />
+        Title="HubLink - Shipment Monitor"
+        Width="1000" Height="680" MinWidth="760" MinHeight="480">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.error">
+      <Setter Property="Foreground" Value="#B00020" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.exportMessage">
+      <Setter Property="Foreground" Value="#B00020" />
+    </Style>
+    <Style Selector="TextBlock.exportMessage.success">
+      <Setter Property="Foreground" Value="#1B7F3B" />
+    </Style>
+    <Style Selector="TextBlock.header">
+      <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Margin="16">
+
+    <!-- Row 0: title + controls -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+      <StackPanel Grid.Column="0">
+        <TextBlock Text="HubLink" FontSize="22" FontWeight="Bold" />
+        <TextBlock Text="{Binding BranchCode, StringFormat='Branch {0}'}" Opacity="0.7" />
+      </StackPanel>
+
+      <TextBlock Grid.Column="1" Text="Status:" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="2" Width="160"
+                ItemsSource="{x:Static vm:MainViewModel.StatusFilters}"
+                SelectedItem="{Binding SelectedFilter}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:StatusFilterOption">
+            <TextBlock Text="{Binding Label}" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <Button Grid.Column="3" Content="Refresh" Command="{Binding RefreshCommand}" />
+      <Button Grid.Column="4" Content="Export CSV" Command="{Binding ExportCommand}" />
+    </Grid>
+
+    <!-- Row 1: loading indicator -->
+    <StackPanel Grid.Row="1" Margin="0,10,0,0" Spacing="4" IsVisible="{Binding IsLoading}">
+      <TextBlock Text="Retrieving shipments from the service..." />
+      <ProgressBar IsIndeterminate="True" />
+    </StackPanel>
+
+    <!-- Row 2: error banner (Retry = same command as Refresh) -->
+    <Border Grid.Row="2" Margin="0,10,0,0" Padding="10" CornerRadius="4"
+            Background="#FDECEA" BorderBrush="#B00020" BorderThickness="1"
+            IsVisible="{Binding HasError}">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+        <TextBlock Classes="error" TextWrapping="Wrap"
+                   Text="{Binding ErrorMessage, StringFormat='Error: {0}'}" />
+        <Button Grid.Column="1" Content="Retry" Command="{Binding RefreshCommand}" />
+      </Grid>
+    </Border>
+
+    <!-- Row 3: previously loaded data notice -->
+    <Border Grid.Row="3" Margin="0,10,0,0" Padding="10" CornerRadius="4"
+            Background="#FFF4E0" BorderBrush="#B26A00" BorderThickness="1"
+            IsVisible="{Binding PreviousDataNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <TextBlock Text="{Binding PreviousDataNotice}" TextWrapping="Wrap" />
+    </Border>
+
+    <!-- Row 4: summary (always covers ALL retrieved shipments) -->
+    <Border Grid.Row="4" Margin="0,10,0,0" Padding="10" CornerRadius="4"
+            Background="#F2F4F7"
+            IsVisible="{Binding Summary, Converter={x:Static ObjectConverters.IsNotNull}}">
+      <StackPanel Orientation="Horizontal" Spacing="24">
+        <TextBlock Text="{Binding Summary.Total, StringFormat='Total: {0}'}" FontWeight="Bold" />
+        <TextBlock Text="{Binding Summary.Pending, StringFormat='Pending: {0}'}" />
+        <TextBlock Text="{Binding Summary.InTransit, StringFormat='InTransit: {0}'}" />
+        <TextBlock Text="{Binding Summary.Delivered, StringFormat='Delivered: {0}'}" />
+        <TextBlock Text="{Binding Summary.Exception, StringFormat='Exception: {0}'}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Row 5: list header + rows + empty states -->
+    <Grid Grid.Row="5" Margin="0,10,0,0" RowDefinitions="Auto,*">
+      <Grid Grid.Row="0" Margin="8,0,8,4" ColumnDefinitions="130,*,*,110,200" ColumnSpacing="8">
+        <TextBlock Grid.Column="0" Classes="header" Text="Tracking number" />
+        <TextBlock Grid.Column="1" Classes="header" Text="Origin" />
+        <TextBlock Grid.Column="2" Classes="header" Text="Destination" />
+        <TextBlock Grid.Column="3" Classes="header" Text="Status" />
+        <TextBlock Grid.Column="4" Classes="header" Text="Last updated (UTC)" />
+      </Grid>
+
+      <ListBox Grid.Row="1" ItemsSource="{Binding VisibleShipments}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="domain:Shipment">
+            <Grid ColumnDefinitions="130,*,*,110,200" ColumnSpacing="8">
+              <TextBlock Grid.Column="0" Text="{Binding TrackingNumber}" />
+              <TextBlock Grid.Column="1" Text="{Binding Origin}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Column="2" Text="{Binding Destination}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Column="3" Text="{Binding Status}" />
+              <TextBlock Grid.Column="4"
+                         Text="{Binding LastUpdatedUtc, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+
+      <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Text="The service returned no shipments for this branch."
+                 IsVisible="{Binding IsEmptyResult}" />
+      <TextBlock Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Text="No shipments match the selected status."
+                 IsVisible="{Binding NoMatchesForFilter}" />
+    </Grid>
+
+    <!-- Row 6: export feedback -->
+    <TextBlock Grid.Row="6" Margin="0,10,0,0" TextWrapping="Wrap"
+               Classes="exportMessage" Classes.success="{Binding ExportSucceeded}"
+               Text="{Binding ExportMessage}"
+               IsVisible="{Binding ExportMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+  </Grid>
 </Window>
