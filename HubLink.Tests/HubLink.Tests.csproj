@@ -22,6 +22,7 @@
     <ProjectReference Include="..\HubLink.Application\HubLink.Application.csproj" />
     <ProjectReference Include="..\HubLink.Domain\HubLink.Domain.csproj" />
     <ProjectReference Include="..\HubLink.Infrastructure\HubLink.Infrastructure.csproj" />
+    <ProjectReference Include="..\HubLink.Desktop\HubLink.Desktop.csproj" />
   </ItemGroup>
 
 </Project>
